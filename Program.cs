@@ -40,18 +40,29 @@ builder.Services.AddScoped<ISensorConfigEventPublisher, SensorConfigEventPublish
 var app = builder.Build();
 
 // Ensure DB schema exists (works WITHOUT migrations; safe for docker-compose & k8s)
-for (var i = 0; i < 30; i++)
+// Don't silently start broken if Postgres is still initializing.
+var logger = app.Logger;
+const int maxAttempts = 120; // seconds
+
+for (var attempt = 1; attempt <= maxAttempts; attempt++)
 {
     try
     {
         using var scope = app.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<SensorDbContext>();
         db.Database.EnsureCreated();
+        logger.LogInformation("Database schema ready.");
         break;
     }
-    catch
+    catch (Exception ex) when (attempt < maxAttempts)
     {
+        logger.LogWarning(ex, "Waiting for Postgres/schema (attempt {Attempt}/{Max})...", attempt, maxAttempts);
         Thread.Sleep(1000);
+    }
+    catch (Exception ex)
+    {
+        logger.LogCritical(ex, "Failed to initialize database schema after {Max} attempts.", maxAttempts);
+        throw;
     }
 }
 
@@ -215,6 +226,46 @@ app.MapPut("/sensors/{id:guid}", async (
 });
 
 // Update by sensorId (string)
+
+
+app.MapPut("/sensors/{sensorId}", async (
+    string sensorId,
+    SensorDefinitionIn input,
+    SensorDbContext db,
+    ISensorConfigEventPublisher publisher,
+    CancellationToken ct) =>
+{
+    if (!string.Equals(sensorId, input.SensorId, StringComparison.OrdinalIgnoreCase))
+        return Results.BadRequest(new { error = "sensorId mismatch between route and body" });
+
+    var s = await db.Sensors.FirstOrDefaultAsync(x => x.SensorId == sensorId, ct);
+    if (s is null) return Results.NotFound();
+
+    s.SensorType = input.SensorType;
+    s.Unit = input.Unit;
+    s.OperatingMin = input.OperatingMin;
+    s.OperatingMax = input.OperatingMax;
+    s.WarningMin = input.WarningMin;
+    s.WarningMax = input.WarningMax;
+    s.IntervalMs = input.IntervalMs <= 0 ? s.IntervalMs : input.IntervalMs;
+    s.Enabled = input.Enabled;
+    s.Simulate = input.Simulate;
+    s.UpdatedAt = DateTimeOffset.UtcNow;
+
+    await db.SaveChangesAsync(ct);
+
+    var outDto = new SensorDefinitionOut(
+        s.Id, s.SensorId, s.SensorType, s.Unit,
+        s.OperatingMin, s.OperatingMax, s.WarningMin, s.WarningMax,
+        s.IntervalMs, s.Enabled, s.Simulate, s.UpdatedAt);
+
+    await publisher.PublishAsync(
+        new SensorConfigChangedEvent("updated", s.SensorId, DateTimeOffset.UtcNow, outDto),
+        ct);
+
+    return Results.Ok(outDto);
+});
+
 app.MapPut("/sensors/by-sensorId/{sensorId}", async (
     string sensorId,
     SensorDefinitionIn input,

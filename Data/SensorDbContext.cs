@@ -14,6 +14,10 @@ public class SensorDbContext(DbContextOptions<SensorDbContext> options) : DbCont
             .IsUnique();
 
         // Seed a couple of default sensors for out-of-the-box demo
+        // IMPORTANT: EF Core "HasData" requires values to be constants.
+        // Using DateTimeOffset.UtcNow here breaks model building and can cause 500s at runtime.
+        var seedUpdatedAt = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
         modelBuilder.Entity<SensorDefinition>().HasData(
             new SensorDefinition
             {
@@ -28,7 +32,7 @@ public class SensorDbContext(DbContextOptions<SensorDbContext> options) : DbCont
                 IntervalMs = 2000,
                 Enabled = true,
                 Simulate = true,
-                UpdatedAt = DateTimeOffset.UtcNow
+                UpdatedAt = seedUpdatedAt
             },
             new SensorDefinition
             {
@@ -43,7 +47,7 @@ public class SensorDbContext(DbContextOptions<SensorDbContext> options) : DbCont
                 IntervalMs = 3000,
                 Enabled = true,
                 Simulate = true,
-                UpdatedAt = DateTimeOffset.UtcNow
+                UpdatedAt = seedUpdatedAt
             }
         );
     }
