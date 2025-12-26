@@ -1,3 +1,6 @@
+// SensorManager: source of truth for sensor configuration (CRUD).
+// Persists config in its own Postgres DB and publishes config-change events to Kafka.
+
 using Microsoft.EntityFrameworkCore;
 using SensorManager.Data;
 using SensorManager.Dtos;
@@ -228,6 +231,7 @@ app.MapPut("/sensors/{id:guid}", async (
 // Update by sensorId (string)
 
 
+// Update sensor by sensorId (used by automated system tests)
 app.MapPut("/sensors/{sensorId}", async (
     string sensorId,
     SensorDefinitionIn input,
