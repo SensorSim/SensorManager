@@ -1,51 +1,53 @@
 # SensorManager
 
-**Purpose:** Owns sensor configuration (types, units, operating/warning ranges, interval, enabled/simulate).
+Sensor configuration service.
 
-This service is the *source of truth* for sensor setup. Other services must not access its database directly.
+Owns the sensor config database and exposes CRUD over HTTP. On create/update/delete it publishes a change event to Kafka (`sensor-config-events`).
 
----
+## Branching
 
-## What it owns
+- `dev` – development
+- `main` – stable / demo-ready
 
-- Sensor configuration records
-- Validation rules for configuration fields
-- Publishing “config changed” events to Kafka
+## Requirements
 
-Database:
-- `postgres-sensormanager` (Docker Compose)
+- .NET SDK (tested with 10.0.101)
+- Postgres
+- Kafka
 
-Kafka:
-- Produces to topic `sensor-config-events`
+## Run
 
----
+Recommended: run the full stack with Docker Compose (see `infra/docker`).
 
-## API
-
-Swagger:
-- `http://localhost:8083/swagger`
-
-Common endpoints:
-- `GET /sensors` (paging + filters)
-- `POST /sensors`
-- `PUT /sensors/by-sensorId/{sensorId}`
-- `DELETE /sensors/by-sensorId/{sensorId}`
-- `GET /health/live`
-- `GET /health/ready`
-
----
-
-## Configuration (env vars)
-
-- `ConnectionStrings__Postgres` – Postgres connection string
-- Kafka bootstrap settings (see `appsettings.json` / compose env)
-
----
-
-## Local run (without Docker)
+Local run (you still need Postgres + Kafka running):
 
 ```bash
 dotnet run
 ```
 
-(For local run you still need Postgres + Kafka running; easiest is Docker Compose.)
+## Configuration
+
+Environment variables:
+
+- `ConnectionStrings__Postgres` – Postgres connection string
+- `Kafka__BootstrapServers` – Kafka bootstrap servers (e.g. `localhost:9092`)
+
+## API
+
+Swagger (docker default): `http://localhost:8083/swagger`
+
+Main endpoints:
+
+- `GET /sensors` (filters + paging)
+- `GET /sensors/{id}`
+- `GET /sensors/by-sensorId/{sensorId}`
+- `POST /sensors`
+- `PUT /sensors/{id}`
+- `PUT /sensors/by-sensorId/{sensorId}`
+- `DELETE /sensors/{id}`
+- `DELETE /sensors/by-sensorId/{sensorId}`
+
+Health:
+
+- `GET /health/live`
+- `GET /health/ready`

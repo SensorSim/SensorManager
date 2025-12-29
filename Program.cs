@@ -1,5 +1,4 @@
-// SensorManager: source of truth for sensor configuration (CRUD).
-// Persists config in its own Postgres DB and publishes config-change events to Kafka.
+// SensorManager: sensor config CRUD + Kafka change events.
 
 using Microsoft.EntityFrameworkCore;
 using SensorManager.Data;
@@ -22,7 +21,7 @@ builder.Services.AddDbContext<SensorDbContext>(options =>
 builder.Services.AddHealthChecks()
     .AddNpgSql(builder.Configuration.GetConnectionString("Postgres")!);
 
-// Kafka producer for config-change events
+// Kafka producer.
 builder.Services.AddSingleton<IProducer<string, string>>(_ =>
 {
     var bootstrapServers = builder.Configuration["Kafka:BootstrapServers"]
@@ -42,8 +41,7 @@ builder.Services.AddScoped<ISensorConfigEventPublisher, SensorConfigEventPublish
 
 var app = builder.Build();
 
-// Ensure DB schema exists (works WITHOUT migrations; safe for docker-compose & k8s)
-// Don't silently start broken if Postgres is still initializing.
+// Wait for Postgres and ensure the schema exists.
 var logger = app.Logger;
 const int maxAttempts = 120; // seconds
 
