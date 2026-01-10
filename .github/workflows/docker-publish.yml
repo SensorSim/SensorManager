@@ -15,6 +15,10 @@ env:
   REGISTRY: ghcr.io
   IMAGE: ghcr.io/${{ github.repository_owner }}/reactor-monitor-sensormanager
 
+defaults:
+  run:
+    working-directory: SensorManager
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -25,7 +29,7 @@ jobs:
         run: |
           docker run --rm \
             -v "${{ github.workspace }}:/src" \
-            -w /src \
+            -w /src/SensorManager \
             mcr.microsoft.com/dotnet/sdk:10.0 \
             dotnet test ./SensorManager.csproj -c Release
 
@@ -53,8 +57,8 @@ jobs:
       - name: Build (push only on main/tags)
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: ./Dockerfile
+          context: ./SensorManager
+          file: ./SensorManager/Dockerfile
           push: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')) }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
